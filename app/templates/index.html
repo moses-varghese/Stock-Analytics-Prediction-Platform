@@ -1,0 +1,172 @@
+<!-- This is the content for: /real-time-ml-app/app/templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Stock Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-cyan-400">Real-Time Stock Predictor</h1>
+            <p class="text-gray-400 mt-2">Daily predictions using historical data and news sentiment.</p>
+        </header>
+
+        <main id="prediction-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for symbol in symbols %}
+            <div id="card-{{ symbol }}" class="stock-card bg-gray-800 rounded-lg shadow-lg p-6 flex flex-col justify-between transition-transform transform hover:scale-105">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold text-white">{{ symbol }}</h2>
+                        <div id="status-{{ symbol }}" class="status-dot bg-gray-500 rounded-full w-4 h-4"></div>
+                    </div>
+                    <div class="h-40 w-full mb-4">
+                        <canvas id="chart-{{ symbol }}"></canvas>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-gray-400">Latest Close:</p>
+                            <p id="close-{{ symbol }}" class="text-3xl font-semibold text-gray-200">--.--</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">Predicted Next:</p>
+                            <p id="prediction-{{ symbol }}" class="text-3xl font-semibold text-gray-200">--.--</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- ADDED: Sentiment and Recommendation Section -->
+                <div class="grid grid-cols-2 gap-4 mt-6">
+                    <div id="sentiment-{{ symbol }}" class="text-center font-bold text-lg py-2 rounded-md bg-gray-700 text-gray-300">
+                        Sentiment
+                    </div>
+                    <div id="recommendation-{{ symbol }}" class="text-center font-bold text-lg py-2 rounded-md bg-gray-700 text-gray-300">
+                        Hold
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </main>
+
+        <footer class="text-center mt-12 text-gray-500">
+            <p>Data is updated daily. Predictions are cached for 60 seconds.</p>
+            <p id="last-updated" class="mt-1">Last updated: Never</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"];
+            const charts = {};
+
+            async function initializeChart(symbol) {
+                // ... (This function remains unchanged) ...
+                const response = await fetch(`/chart_data/${symbol}`);
+                const initialData = await response.json();
+                const ctx = document.getElementById(`chart-${symbol}`).getContext('2d');
+                charts[symbol] = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: initialData.labels, datasets: [{ label: 'Close Price', data: initialData.data, borderColor: 'rgb(56, 189, 248)', tension: 0.1, pointRadius: 0 }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { display: false } }, plugins: { legend: { display: false } } }
+                });
+            }
+            
+            function updateRecommendationUI(element, recommendation) {
+                // ... (This function remains unchanged) ...
+                element.textContent = recommendation;
+                element.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-700', 'text-white', 'text-gray-300');
+                if (recommendation === 'Buy') element.classList.add('bg-green-500', 'text-white');
+                else if (recommendation === 'Sell') element.classList.add('bg-red-500', 'text-white');
+                else element.classList.add('bg-gray-700', 'text-gray-300');
+            }
+
+            // --- NEW: Function to update sentiment UI ---
+            function updateSentimentUI(element, label) {
+                element.textContent = label;
+                element.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-700', 'text-white', 'text-gray-300');
+                if (label.includes('Bullish')) element.classList.add('bg-green-500', 'text-white');
+                else if (label.includes('Bearish')) element.classList.add('bg-red-500', 'text-white');
+                else element.classList.add('bg-gray-700', 'text-gray-300');
+            }
+
+            // --- REFACTORED: Master update function for each symbol ---
+            async function updateSymbolData(symbol) {
+                const statusDot = document.getElementById(`status-${symbol}`);
+                statusDot.classList.remove('bg-gray-500', 'bg-red-600');
+                statusDot.classList.add('bg-yellow-400');
+
+                try {
+                    // Fetch prediction and sentiment data concurrently
+                    const [predResponse, sentResponse] = await Promise.all([
+                        fetch(`/predict/${symbol}`),
+                        fetch(`/sentiment/${symbol}`)
+                    ]);
+
+                    // Process prediction data
+                    if (predResponse.ok) {
+                        const predData = await predResponse.json();
+                        const closePrice = predData.latest_close;
+                        document.getElementById(`close-${symbol}`).textContent = closePrice;
+                        document.getElementById(`prediction-${symbol}`).textContent = predData.prediction;
+                        updateRecommendationUI(document.getElementById(`recommendation-${symbol}`), predData.recommendation);
+                        
+                        const chart = charts[symbol];
+                        if (chart && chart.data.datasets[0].data.length > 0 && chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1] !== closePrice) {
+                            chart.data.labels.push(new Date().toLocaleDateString());
+                            chart.data.datasets[0].data.push(closePrice);
+                            if (chart.data.labels.length > 100) {
+                                chart.data.labels.shift();
+                                chart.data.datasets[0].data.shift();
+                            }
+                            chart.update('quiet');
+                        }
+                    }
+
+                    // Process sentiment data
+                    if (sentResponse.ok) {
+                        const sentData = await sentResponse.json();
+                        let overallSentiment = 'Neutral'; // Default sentiment
+                        if (sentData.feed && sentData.feed.length > 0) {
+                            // Find the overall sentiment for the ticker
+                            const tickerSentiment = sentData.feed[0].ticker_sentiment.find(t => t.ticker === symbol);
+                            if (tickerSentiment) {
+                                overallSentiment = tickerSentiment.ticker_sentiment_label;
+                            }
+                        }
+                        updateSentimentUI(document.getElementById(`sentiment-${symbol}`), overallSentiment);
+                    }
+                    
+                    statusDot.classList.remove('bg-yellow-400');
+                    statusDot.classList.add('bg-green-500');
+
+                } catch (error) {
+                    console.error(`Error updating data for ${symbol}:`, error);
+                    statusDot.classList.remove('bg-yellow-400', 'bg-green-500');
+                    statusDot.classList.add('bg-red-600');
+                }
+            }
+
+            function updateAllSymbols() {
+                symbols.forEach(updateSymbolData);
+                document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            }
+
+            // Initialize all charts first
+            symbols.forEach(initializeChart);
+
+            // Then start fetching data periodically
+            setTimeout(() => {
+                updateAllSymbols(); // Fetch immediately after a short delay
+                setInterval(updateAllSymbols, 15000); // And then every 15 seconds
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
