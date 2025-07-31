@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # API Service (Flask)
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/usr/src/app
+    depends_on:
+      - mongo
+      - postgres
+      - redis
+    environment:
+      - FLASK_ENV=${FLASK_ENV}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - MONGO_URI=${MONGO_URI}
+      - POSTGRES_DSN=${POSTGRES_DSN}
+      - REDIS_URL=${REDIS_URL}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+
+  # Data Ingestion Service
+  ingestion:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.ingest
+    volumes:
+      - ./app:/usr/src/app
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+  
+  # Test Runner Service
+  tests:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.api
+    volumes:
+      - ./app:/usr/src/app
+      - ./tests:/usr/src/app/tests
+    environment:
+      - FLASK_ENV=testing
+      - FLASK_SECRET_KEY=test-secret-key
+    # Override the default command to run tests
+    command: ["pytest", "tests/"]
+
+  # Database Services
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  # PostgreSQL Service
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=appdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # Redis Caching Service
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo-data:
+  postgres-data:
