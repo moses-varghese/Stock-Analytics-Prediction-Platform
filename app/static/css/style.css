@@ -1,0 +1,22 @@
+/* We will use Tailwind CSS for styling, so this file can be minimal.
+   This file is mainly here to show the structure. We load Tailwind via a CDN in the HTML.
+*/
+
+/* Add a custom animation for the status dot */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.status-dot.bg-yellow-400 {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* A little extra flair for the cards */
+.stock-card {
+    border: 1px solid #374151; /* border-gray-700 */
+}
