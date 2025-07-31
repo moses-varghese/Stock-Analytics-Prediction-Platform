@@ -1,0 +1,21 @@
+# Python dependencies for all services
+# Web Framework
+flask
+gunicorn
+
+# Data Handling & ML
+pandas
+scikit-learn
+numpy
+
+# Databases
+pymongo[srv]  # For MongoDB
+psycopg2-binary # For PostgreSQL
+redis         # For caching
+
+# API Interaction
+requests
+
+# --- Testing ---
+pytest
+pytest-mock
