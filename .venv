@@ -1,0 +1,14 @@
+# Environment variables
+# Flask Application
+FLASK_ENV=development
+FLASK_SECRET_KEY=
+
+# API Keys
+# key from https://www.alphavantage.co/support/#api-key
+ALPHA_VANTAGE_API_KEY=
+
+# Database Connection Strings
+# These point to the service names defined in docker-compose.yml
+MONGO_URI=mongodb://mongo:27017/realtimedb
+POSTGRES_DSN=postgresql://user:password@postgres:5432/appdb
+REDIS_URL=redis://redis:6379
